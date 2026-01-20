@@ -179,3 +179,13 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Data files
+*.png
+*.jpg
+*.jpeg
+class_map.json
+model.pth
+
+# MacOS
+.DS_Store
