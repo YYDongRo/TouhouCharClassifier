@@ -1,7 +1,13 @@
-import streamlit as st
-from PIL import Image
+import json
+from pathlib import Path
 
-from src.gradcam import generate_cam_overlay
+import streamlit as st
+from PIL import Image, ImageDraw
+from streamlit_drawable_canvas import st_canvas
+
+from src.dataset import TouhouImageDataset
+from src.gradcam import generate_cam_overlay, load_model as load_gradcam_model
+from src.memory import count_memory_entries, find_best_matches, save_memory_example
 from src.pixiv_downloader import (
     build_search_word,
     create_pixiv_api,
@@ -14,6 +20,69 @@ from src.pixiv_downloader import (
 
 st.title("Touhou(东方) Character Classifier")
 
+
+@st.cache_data
+def load_class_names() -> list[str]:
+    class_map_path = Path("class_map.json")
+    if class_map_path.exists():
+        with class_map_path.open("r", encoding="utf-8") as f:
+            class_map = json.load(f)
+        idx_to_class = {int(v): k for k, v in class_map.items()}
+        return [idx_to_class[i] for i in sorted(idx_to_class.keys())]
+    ds = TouhouImageDataset("data")
+    return [ds.idx_to_class[i] for i in sorted(ds.idx_to_class.keys())]
+
+
+@st.cache_resource
+def load_memory_model():
+    model, _idx_to_class, _class_to_idx = load_gradcam_model()
+    return model
+
+
+def resize_for_canvas(image: Image.Image, max_size: int = 640) -> tuple[Image.Image, float, float]:
+    w, h = image.size
+    scale = min(max_size / max(w, h), 1.0)
+    if scale < 1.0:
+        new_w, new_h = int(w * scale), int(h * scale)
+        resized = image.resize((new_w, new_h), Image.LANCZOS)
+    else:
+        new_w, new_h = w, h
+        resized = image
+    return resized, w / new_w, h / new_h
+
+
+def extract_circle_region(
+    image: Image.Image,
+    circle_obj: dict,
+    scale_x: float,
+    scale_y: float,
+) -> tuple[Image.Image, tuple[int, int, int, int]]:
+    w, h = image.size
+    left = float(circle_obj.get("left", 0)) * scale_x
+    top = float(circle_obj.get("top", 0)) * scale_y
+    radius = float(circle_obj.get("radius", 0))
+    sx = float(circle_obj.get("scaleX", 1))
+    sy = float(circle_obj.get("scaleY", 1))
+    rx = radius * sx * scale_x
+    ry = radius * sy * scale_y
+    r = max(rx, ry)
+    cx = left + rx
+    cy = top + ry
+
+    x0 = int(max(cx - r, 0))
+    y0 = int(max(cy - r, 0))
+    x1 = int(min(cx + r, w))
+    y1 = int(min(cy + r, h))
+    bbox = (x0, y0, x1, y1)
+
+    mask = Image.new("L", image.size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
+    crop = image.crop(bbox)
+    mask_crop = mask.crop(bbox)
+    masked = Image.composite(crop, Image.new("RGB", crop.size, (0, 0, 0)), mask_crop)
+    return masked, bbox
+
 tab_classifier, tab_pixiv = st.tabs(["Classifier", "Pixiv Downloader"])
 
 with tab_classifier:
@@ -23,9 +92,24 @@ with tab_classifier:
         img = Image.open(uploaded).convert("RGB")
         img.save("temp.png")
 
-        cam, orig, label = generate_cam_overlay("temp.png")
+        cam, orig, label, probs = generate_cam_overlay("temp.png")
 
         st.write(f"Prediction: **{label}**")
+
+        st.subheader("Class probabilities")
+        prob_rows = [{"Class": cls, "Probability": float(p)} for cls, p in probs]
+        st.dataframe(prob_rows, use_container_width=True)
+
+        class_names = [cls for cls, _ in probs]
+        target = st.selectbox(
+            "Grad-CAM target class",
+            options=class_names,
+            index=0,
+            help="Select a class to visualize its activation map.",
+        )
+
+        if target != label:
+            cam, orig, label, probs = generate_cam_overlay("temp.png", target_class=target)
 
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
@@ -33,6 +117,94 @@ with tab_classifier:
         ax.imshow(cam, cmap="jet", alpha=0.4)
         ax.axis("off")
         st.pyplot(fig)
+
+        st.subheader("Teach / Correct (Circle memory)")
+        with st.expander("Help the app memorize a character", expanded=False):
+            st.caption(
+                "Circle the character, choose the correct label, and save. "
+                "These examples are stored locally and used for similarity matching."
+            )
+
+            class_names_all = load_class_names()
+            default_idx = class_names_all.index(label) if label in class_names_all else 0
+            correct_label = st.selectbox("Correct label", options=class_names_all, index=default_idx)
+            note = st.text_input("Note (optional)", placeholder="e.g., headshot, chibi, side view")
+            use_circle_only = st.checkbox("Use circled region only", value=True)
+
+            resized_img, scale_x, scale_y = resize_for_canvas(img)
+            circle_obj = None
+            canvas_error = None
+            try:
+                canvas_result = st_canvas(
+                    fill_color="rgba(255, 0, 0, 0.15)",
+                    stroke_width=2,
+                    stroke_color="#FF4B4B",
+                    background_image=resized_img,
+                    update_streamlit=True,
+                    height=resized_img.height,
+                    width=resized_img.width,
+                    drawing_mode="circle",
+                    key="teach_canvas",
+                )
+
+                if canvas_result.json_data and canvas_result.json_data.get("objects"):
+                    circle_obj = canvas_result.json_data["objects"][-1]
+            except AttributeError as exc:
+                canvas_error = str(exc)
+
+            if canvas_error:
+                cx = st.slider("Circle center X", 0, resized_img.width, resized_img.width // 2)
+                cy = st.slider("Circle center Y", 0, resized_img.height, resized_img.height // 2)
+                max_r = max(5, min(resized_img.width, resized_img.height) // 2)
+                r = st.slider("Circle radius", 5, max_r, max_r // 2)
+                circle_obj = {
+                    "left": cx - r,
+                    "top": cy - r,
+                    "radius": r,
+                    "scaleX": 1.0,
+                    "scaleY": 1.0,
+                }
+                preview = resized_img.copy()
+                draw = ImageDraw.Draw(preview)
+                draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(255, 75, 75), width=3)
+                st.image(preview, caption="Circle preview")
+
+            if st.button("Save to memory", type="primary"):
+                if use_circle_only and not circle_obj:
+                    st.error("Please draw a circle around the character.")
+                else:
+                    if circle_obj:
+                        region, bbox = extract_circle_region(img, circle_obj, scale_x, scale_y)
+                    else:
+                        region, bbox = img, None
+                    model = load_memory_model()
+                    saved_path = save_memory_example(
+                        model,
+                        region,
+                        correct_label,
+                        source_path=str(getattr(uploaded, "name", "uploaded")),
+                        bbox=bbox,
+                        note=note,
+                    )
+                    st.success(f"Saved to memory: {saved_path}")
+
+            st.caption(f"Memory examples: {count_memory_entries()}")
+
+            if st.checkbox("Show memory matches"):
+                query_image = img
+                if use_circle_only and circle_obj:
+                    query_image, _bbox = extract_circle_region(img, circle_obj, scale_x, scale_y)
+                model = load_memory_model()
+                matches = find_best_matches(model, query_image, top_k=5)
+                if matches:
+                    st.dataframe(matches, use_container_width=True)
+                    best = matches[0]
+                    st.info(
+                        f"Best memory match: {best['label']} (score {best['score']:.3f}). "
+                        "You can save a correction above if needed."
+                    )
+                else:
+                    st.info("No memory examples yet. Save one above to start.")
 
 with tab_pixiv:
     st.subheader("Pixiv Downloader")

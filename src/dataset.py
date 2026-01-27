@@ -15,11 +15,15 @@ class TouhouImageDataset(Dataset):
       marisa/
       sakuya/
 
-    We only load images; real training comes later.
+    You can also pass multiple roots to merge datasets
+    (e.g., ["data", "memory"]).
     """
 
-    def __init__(self, root_dir: str, transform=None):
-        self.root_dir = Path(root_dir)
+    def __init__(self, root_dir: str | list[str] | tuple[str, ...], transform=None):
+        if isinstance(root_dir, (list, tuple)):
+            self.root_dirs = [Path(p) for p in root_dir]
+        else:
+            self.root_dirs = [Path(root_dir)]
         self.transform = transform or transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
@@ -33,16 +37,29 @@ class TouhouImageDataset(Dataset):
         self._build_index()
 
     def _build_index(self):
-        classes = sorted([d.name for d in self.root_dir.iterdir() if d.is_dir()])
+        classes_set = set()
+        for root in self.root_dirs:
+            if not root.exists():
+                continue
+            for d in root.iterdir():
+                if d.is_dir():
+                    classes_set.add(d.name)
+
+        classes = sorted(classes_set)
         self.class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
         self.idx_to_class = {i: cls_name for cls_name, i in self.class_to_idx.items()}
 
-        for cls_name in classes:
-            cls_dir = self.root_dir / cls_name
-            for img_path in cls_dir.glob("*.*"):
-                if img_path.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]:
-                    self.image_paths.append(img_path)
-                    self.labels.append(self.class_to_idx[cls_name])
+        for root in self.root_dirs:
+            if not root.exists():
+                continue
+            for cls_name in classes:
+                cls_dir = root / cls_name
+                if not cls_dir.exists():
+                    continue
+                for img_path in cls_dir.glob("*.*"):
+                    if img_path.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]:
+                        self.image_paths.append(img_path)
+                        self.labels.append(self.class_to_idx[cls_name])
 
     def __len__(self) -> int:
         return len(self.image_paths)
