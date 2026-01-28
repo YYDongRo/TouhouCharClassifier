@@ -50,7 +50,6 @@ PIXIV_PASSWORD=""
 ### 4) Run the program
 
 ```bash
-cd TouhouCharClassifier
 uv run streamlit run app.py
 ```
 
