@@ -13,8 +13,7 @@ A Streamlit-based Touhou Project character classifier built on PyTorch. The app 
   - Filter by illustration type and options
   - Sort results to keep dataset collection organized
 - **Browser-based Pixiv refresh token flow**
-  - Obtain your Pixiv refresh token using a standard login flow
-
+  - Obtain your Pixiv refresh token headlessly by providing your credentials in the .env file
 ## Dataset
 
 - Sample dataset: <https://drive.google.com/drive/folders/1g0fvx9OwYUaohgFOwiKB1FCoqBD72DZA?usp=sharing>
@@ -35,13 +34,26 @@ macOS:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 2) Clone and run
+### 2) Clone the project
 
 ```bash
 git clone https://github.com/YYDongRo/TouhouCharClassifier.git
+```
+### 3) Enter your Pixiv credentials in the .env file
+Fill in the blank as shown in the file:
+
+```bash
+PIXIV_USERNAME=""
+PIXIV_PASSWORD=""
+```
+
+### 4) Run the program
+
+```bash
 cd TouhouCharClassifier
 uv run streamlit run app.py
 ```
+
 
 ## Usage
 
@@ -56,16 +68,8 @@ data/
   cirno/
 ```
 
-Start training:
+Train the model using:
 
 ```bash
 uv run python -m src.train
-```
-
-### Inference
-
-Launch the app and upload an image in the UI:
-
-```bash
-uv run streamlit run app.py
 ```
