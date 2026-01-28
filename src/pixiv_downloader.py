@@ -1,11 +1,29 @@
-import json
+import asyncio
 import os
 import re
 import subprocess
+import sys
 import urllib.parse
+from base64 import urlsafe_b64encode
+from hashlib import sha256
+from random import uniform
+from secrets import token_urlsafe
 from typing import Iterable, List, Optional
+from urllib.parse import urlencode
 
+from dotenv import load_dotenv
+from gppt import GetPixivToken
+import nest_asyncio
 from pixivpy3 import AppPixivAPI
+
+load_dotenv()
+
+# Fix for Windows + Python 3.14: use ProactorEventLoop for subprocess support
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+# Allow nested event loops (needed for Streamlit + asyncio on Windows)
+nest_asyncio.apply()
 
 
 _SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]")
@@ -13,55 +31,23 @@ _SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]")
 
 def create_pixiv_api(refresh_token: str) -> AppPixivAPI:
     aapi = AppPixivAPI()
-    aapi.auth(refresh_token=refresh_token)
+    aapi.auth(refresh_token)
     return aapi
 
 
-def fetch_refresh_token(
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-    headless: bool = True,
-) -> str:
-    from gppt import GetPixivToken
-
-    g = GetPixivToken(headless=headless)
-    res = g.login(username=username, password=password)
-    token = res.get("refresh_token") if isinstance(res, dict) else None
-    if not token:
-        raise RuntimeError("Failed to retrieve refresh token.")
-    return token
-
-
-def fetch_refresh_token_cli(
-    interactive: bool = True,
-    username: Optional[str] = None,
-    password: Optional[str] = None,
-) -> str:
-    if interactive:
-        cmd = ["gppt", "login", "-j"]
-    else:
-        if not username or not password:
-            raise ValueError("Username and password required for headless login.")
-        cmd = ["gppt", "login-headless", "-u", username, "-p", password, "-j"]
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "gppt CLI failed")
-
-    stdout = result.stdout.strip()
-    token = None
-
-    try:
-        payload = json.loads(stdout)
-        token = payload.get("refresh_token")
-    except json.JSONDecodeError:
-        match = re.search(r"refresh_token:\s*(\S+)", stdout)
-        if match:
-            token = match.group(1)
-
-    if not token:
-        raise RuntimeError("Failed to retrieve refresh token.")
-    return token
+def fetch_refresh_token() -> str:
+    username = os.getenv("PIXIV_USERNAME")
+    password = os.getenv("PIXIV_PASSWORD")
+    
+    if not username or not password:
+        raise ValueError(
+            "Pixiv credentials required. Set PIXIV_USERNAME and PIXIV_PASSWORD "
+            "in .env file or provide them as arguments."
+        )
+    
+    g = GetPixivToken(headless=True)
+    refresh_token = asyncio.run(g.login(username=username, password=password))["refresh_token"]
+    return refresh_token
 
 
 def sanitize_filename(name: str, max_len: int = 160) -> str:

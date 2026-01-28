@@ -13,7 +13,7 @@ from src.pixiv_downloader import (
     create_pixiv_api,
     download_illust,
     filter_illusts,
-    fetch_refresh_token_cli,
+    fetch_refresh_token,
     ranking_illusts,
     search_illusts,
 )
@@ -208,20 +208,16 @@ with tab_classifier:
 
 with tab_pixiv:
     st.subheader("Pixiv Downloader")
-    st.caption("Use a Pixiv refresh token to authenticate. Ugoira (animated) items are skipped.")
 
     if "pixiv_refresh_token" not in st.session_state:
         st.session_state.pixiv_refresh_token = ""
 
-    with st.expander("Get refresh token (Pixiv login)", expanded=False):
-        st.caption("Login happens in a browser window for CAPTCHA/2FA. Credentials are not stored.")
-        st.info("A browser window will open for Pixiv login and CAPTCHA.")
-        if st.button("Fetch refresh token", type="secondary"):
-            try:
-                st.session_state.pixiv_refresh_token = fetch_refresh_token_cli(interactive=True)
-                st.success("Refresh token fetched.")
-            except Exception as exc:
-                st.error(f"Failed to fetch refresh token: {exc}")
+    if st.button("Fetch refresh token", type="secondary"):
+        try:
+            st.session_state.pixiv_refresh_token = fetch_refresh_token()
+            st.success("Refresh token fetched.")
+        except Exception as exc:
+            st.error(f"Failed to fetch refresh token: {exc}")
 
     refresh_token = st.text_input(
         "Refresh token",
