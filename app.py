@@ -236,11 +236,7 @@ with tab_pixiv:
 
     age_filter = st.selectbox("Age filter", ["All ages", "R-18"])
 
-    col_ai, col_not_ai = st.columns(2)
-    with col_ai:
-        include_ai = st.checkbox("AI tagged", value=True)
-    with col_not_ai:
-        include_not_ai = st.checkbox("Not AI tagged", value=True)
+    include_ai = st.checkbox("Include AI artwork", value=False)
 
     if mode == "Search by tag":
         word = st.text_input("Tag(s)", placeholder="e.g. 東方Project, 博麗霊夢")
@@ -295,9 +291,6 @@ with tab_pixiv:
             if not search_word:
                 st.error("Please enter at least one tag.")
                 st.stop()
-            if not include_ai and not include_not_ai:
-                st.error("Select at least one AI filter option.")
-                st.stop()
 
             search_target_map = {
                 "Partial Match Tags": "partial_match_for_tags",
@@ -319,11 +312,8 @@ with tab_pixiv:
             sort_api = sort_map.get(sort, "date_desc")
             duration_api = duration_map.get(duration)
 
-            search_ai_type = None
-            if include_ai and not include_not_ai:
-                search_ai_type = 2
-            elif include_not_ai and not include_ai:
-                search_ai_type = 0
+            # search_ai_type: None = all, 0 = not AI, 2 = AI only
+            search_ai_type = None if include_ai else 0
             illusts = search_illusts(
                 aapi,
                 search_word,
@@ -345,13 +335,8 @@ with tab_pixiv:
                 max_pages,
             )
             count_api = len(illusts)
-            if not include_ai and not include_not_ai:
-                st.error("Select at least one AI filter option.")
-                st.stop()
-            if include_ai and not include_not_ai:
-                illusts = [illust for illust in illusts if getattr(illust, "ai_type", 0) == 2]
-            elif include_not_ai and not include_ai:
-                illusts = [illust for illust in illusts if getattr(illust, "ai_type", 0) == 0]
+            if not include_ai:
+                illusts = [illust for illust in illusts if getattr(illust, "ai_type", 0) != 2]
             count_ai = len(illusts)
 
         illusts = filter_illusts(illusts)
