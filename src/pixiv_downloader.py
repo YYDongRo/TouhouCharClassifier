@@ -31,7 +31,7 @@ _SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]")
 
 def create_pixiv_api(refresh_token: str) -> AppPixivAPI:
     aapi = AppPixivAPI()
-    aapi.auth(refresh_token)
+    aapi.auth(refresh_token=refresh_token)
     return aapi
 
 
