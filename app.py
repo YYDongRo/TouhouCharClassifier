@@ -133,41 +133,22 @@ with tab_classifier:
 
             resized_img, scale_x, scale_y = resize_for_canvas(img)
             circle_obj = None
-            canvas_error = None
-            try:
-                canvas_result = st_canvas(
-                    fill_color="rgba(255, 0, 0, 0.15)",
-                    stroke_width=2,
-                    stroke_color="#FF4B4B",
-                    background_image=resized_img,
-                    update_streamlit=True,
-                    height=resized_img.height,
-                    width=resized_img.width,
-                    drawing_mode="circle",
-                    key="teach_canvas",
-                )
 
-                if canvas_result.json_data and canvas_result.json_data.get("objects"):
-                    circle_obj = canvas_result.json_data["objects"][-1]
-            except AttributeError as exc:
-                canvas_error = str(exc)
-
-            if canvas_error:
-                cx = st.slider("Circle center X", 0, resized_img.width, resized_img.width // 2)
-                cy = st.slider("Circle center Y", 0, resized_img.height, resized_img.height // 2)
-                max_r = max(5, min(resized_img.width, resized_img.height) // 2)
-                r = st.slider("Circle radius", 5, max_r, max_r // 2)
-                circle_obj = {
-                    "left": cx - r,
-                    "top": cy - r,
-                    "radius": r,
-                    "scaleX": 1.0,
-                    "scaleY": 1.0,
-                }
-                preview = resized_img.copy()
-                draw = ImageDraw.Draw(preview)
-                draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(255, 75, 75), width=3)
-                st.image(preview, caption="Circle preview")
+            cx = st.slider("Circle center X", 0, resized_img.width, resized_img.width // 2)
+            cy = st.slider("Circle center Y", 0, resized_img.height, resized_img.height // 2)
+            max_r = max(5, min(resized_img.width, resized_img.height) // 2)
+            r = st.slider("Circle radius", 5, max_r, max_r // 2)
+            circle_obj = {
+                "left": cx - r,
+                "top": cy - r,
+                "radius": r,
+                "scaleX": 1.0,
+                "scaleY": 1.0,
+            }
+            preview = resized_img.copy()
+            draw = ImageDraw.Draw(preview)
+            draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(255, 75, 75), width=3)
+            st.image(preview, caption="Circle preview")
 
             if st.button("Save to memory", type="primary"):
                 if use_circle_only and not circle_obj:
@@ -212,9 +193,21 @@ with tab_pixiv:
     if "pixiv_refresh_token" not in st.session_state:
         st.session_state.pixiv_refresh_token = ""
 
+    # Login mode selection
+    login_mode = st.radio(
+        "Login mode",
+        ["Headless (auto)", "Visible browser (auto)"],
+        horizontal=True,
+        help="Headless runs in background. Visible browser shows the login process."
+    )
+
     if st.button("Fetch refresh token", type="secondary"):
         try:
-            st.session_state.pixiv_refresh_token = fetch_refresh_token()
+            if login_mode == "Headless (auto)":
+                st.session_state.pixiv_refresh_token = fetch_refresh_token(headless=True, manual_login=False)
+            else:
+                st.session_state.pixiv_refresh_token = fetch_refresh_token(headless=False, manual_login=False)
+            
             st.success("Refresh token fetched.")
         except Exception as exc:
             st.error(f"Failed to fetch refresh token: {exc}")
