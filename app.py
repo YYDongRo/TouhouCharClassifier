@@ -239,7 +239,7 @@ with tab_pixiv:
         )
         sort = st.selectbox(
             "Sort",
-            ["Date_desc", "Date_asc", "Popular_desc"],
+            ["Popular_desc", "Date_asc", "Date_desc"],
             help="Popular_desc may require Pixiv Premium.",
         )
         duration = st.selectbox(
