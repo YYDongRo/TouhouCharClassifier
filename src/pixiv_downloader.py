@@ -35,17 +35,44 @@ def create_pixiv_api(refresh_token: str) -> AppPixivAPI:
     return aapi
 
 
-def fetch_refresh_token() -> str:
+def fetch_refresh_token(headless: bool = True, manual_login: bool = False) -> str:
+    """
+    Fetch a Pixiv refresh token.
+    
+    Args:
+        headless: If True, run browser in headless mode (no visible window).
+                  If False, open a visible browser window.
+        manual_login: If True, open visible browser and let user manually enter
+                      credentials. The function will wait for user to complete
+                      login and then extract the refresh token.
+                      When manual_login is True, headless is automatically set to False.
+    
+    Returns:
+        The refresh token string.
+    """
+    if manual_login:
+        # Manual login mode: open visible browser for user to enter credentials
+        print("Opening browser for manual Pixiv login...")
+        print("Please log in to Pixiv manually in the browser window.")
+        print("The refresh token will be extracted automatically after successful login.")
+        
+        g = GetPixivToken(headless=False)
+        # Use login with no credentials - user will enter them manually
+        refresh_token = asyncio.run(g.login())["refresh_token"]
+        return refresh_token
+    
+    # Automatic login mode with credentials from environment
     username = os.getenv("PIXIV_USERNAME")
     password = os.getenv("PIXIV_PASSWORD")
     
     if not username or not password:
         raise ValueError(
             "Pixiv credentials required. Set PIXIV_USERNAME and PIXIV_PASSWORD "
-            "in .env file or provide them as arguments."
+            "in .env file or provide them as arguments, or use manual_login=True "
+            "to enter credentials manually in a browser window."
         )
     
-    g = GetPixivToken(headless=True)
+    g = GetPixivToken(headless=headless)
     refresh_token = asyncio.run(g.login(username=username, password=password))["refresh_token"]
     return refresh_token
 
