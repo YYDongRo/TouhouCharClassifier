@@ -77,8 +77,12 @@ def evaluate(model, loader, loss_fn, device):
     return avg_loss, acc
 
 
-def train(num_epochs=5, lr=1e-4, batch_size=16, num_workers=0, include_memory=True):
+def train(num_epochs=20, lr=1e-4, batch_size=64, num_workers=8, include_memory=True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device.type == "cuda":
+        print(f"Using GPU: {torch.cuda.get_device_name(0)}")
+    else:
+        print("Using CPU")
     roots = ["data"]
     if include_memory and Path("memory").exists():
         roots.append("memory")
