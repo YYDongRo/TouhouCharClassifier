@@ -94,6 +94,20 @@ with tab_classifier:
 
         cam, orig, label, probs = generate_cam_overlay("temp.png")
 
+        # Check confidence threshold
+        CONFIDENCE_THRESHOLD = 0.45
+        top_prob = probs[0][1] if probs else 0.0
+        
+        if top_prob < CONFIDENCE_THRESHOLD:
+            st.warning(
+                f"⚠️ **Low confidence prediction** ({top_prob:.1%})\n\n"
+                "The AI cannot confidently recognize this character. Possible reasons:\n"
+                "- This character is not in the training data\n"
+                "- The image quality is low\n"
+                "- Multiple characters in the image\n\n"
+                "Consider training more classes or adding this character to the dataset."
+            )
+        
         st.write(f"Prediction: **{label}**")
 
         st.subheader("Class probabilities")
