@@ -35,6 +35,7 @@ dependencies = [
     "zipp==3.23.0",
     "nest-asyncio>=1.6.0",
     "python-dotenv>=1.2.1",
+    "grad-cam>=1.5.5",
 ]
 
 [tool.uv.sources]

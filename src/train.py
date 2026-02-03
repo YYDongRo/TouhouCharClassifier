@@ -77,7 +77,7 @@ def evaluate(model, loader, loss_fn, device):
     return avg_loss, acc
 
 
-def train(num_epochs=20, lr=1e-4, batch_size=64, num_workers=8, include_memory=True):
+def train(num_epochs=15, lr=1e-4, batch_size=64, num_workers=8, include_memory=True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
         print(f"Using GPU: {torch.cuda.get_device_name(0)}")
@@ -100,6 +100,9 @@ def train(num_epochs=20, lr=1e-4, batch_size=64, num_workers=8, include_memory=T
     model = create_model(num_classes).to(device)
     loss_fn = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", patience=3, factor=0.5
+    )
 
     best_val_acc = 0.0
     best_path = Path("model.pth")
@@ -124,16 +127,21 @@ def train(num_epochs=20, lr=1e-4, batch_size=64, num_workers=8, include_memory=T
 
         train_loss = running_loss / max(seen, 1)
         val_loss, val_acc = evaluate(model, val_loader, loss_fn, device)
+        
+        old_lr = optimizer.param_groups[0]["lr"]
+        scheduler.step(val_loss)
+        new_lr = optimizer.param_groups[0]["lr"]
 
         if val_acc >= best_val_acc:
             best_val_acc = val_acc
             torch.save(model.state_dict(), best_path)
 
+        lr_info = f" | LR: {new_lr:.2e}" if new_lr != old_lr else ""
         print(
             f"Epoch {epoch + 1}/{num_epochs} | "
             f"Train Loss: {train_loss:.4f} | "
             f"Val Loss: {val_loss:.4f} | "
-            f"Val Acc: {val_acc:.2%}"
+            f"Val Acc: {val_acc:.2%}{lr_info}"
         )
 
     print(f"Best model saved to {best_path}")

@@ -1,8 +1,12 @@
 import json
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torchvision import transforms
 from PIL import Image
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.image import show_cam_on_image
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
 from src.model import create_model
 from src.dataset import TouhouImageDataset
@@ -29,21 +33,8 @@ def get_gradcam(image_path, target_class=None, top_k=5):
     model, idx_to_class, class_to_idx = load_model()
     model.eval()
 
-    target_layer = model.layer4[-1]
-    activations = None
-    gradients = None
-
-    def fwd_hook(m, i, o):
-        nonlocal activations
-        activations = o
-
-    def bwd_hook(m, gin, gout):
-        nonlocal gradients
-        gradients = gout[0]
-
-    # Better than register_backward_hook (deprecated-ish behavior)
-    fwd_handle = target_layer.register_forward_hook(fwd_hook)
-    bwd_handle = target_layer.register_full_backward_hook(bwd_hook)
+    # For ResNet, target the last convolutional layer (layer4)
+    target_layers = [model.layer4[-1]]
 
     imagenet_mean = [0.485, 0.456, 0.406]
     imagenet_std = [0.229, 0.224, 0.225]
@@ -54,11 +45,16 @@ def get_gradcam(image_path, target_class=None, top_k=5):
     ])
 
     img = Image.open(image_path).convert("RGB")
+    img_resized = img.resize((224, 224))
+    rgb_img = np.array(img_resized) / 255.0  # Normalized RGB for overlay
+    
     x = transform(img).unsqueeze(0)
 
-    out = model(x)
-    probs = F.softmax(out, dim=1).squeeze(0)
-
+    # Get prediction
+    with torch.no_grad():
+        out = model(x)
+        probs = F.softmax(out, dim=1).squeeze(0)
+    
     if target_class is None:
         pred = probs.argmax().item()
     elif isinstance(target_class, str):
@@ -68,29 +64,16 @@ def get_gradcam(image_path, target_class=None, top_k=5):
 
     pred_label = idx_to_class[pred]
 
-    model.zero_grad(set_to_none=True)
-    out[0, pred].backward()
-
-    act = activations.squeeze(0)      # [C,H,W]
-    grad = gradients.squeeze(0)       # [C,H,W]
-    weights = grad.mean(dim=(1, 2))   # [C]
-
-    cam = (weights[:, None, None] * act).sum(dim=0)
-    cam = F.relu(cam)
-
-    # Normalize safely (avoid divide-by-zero)
-    cam_min, cam_max = cam.min(), cam.max()
-    cam = (cam - cam_min) / (cam_max - cam_min + 1e-8)
-
-    # cam currently corresponds to the 224x224 input.
-    # Resize cam to ORIGINAL image size for overlay.
-    orig_w, orig_h = img.size  # PIL is (W,H)
-    cam = cam.unsqueeze(0).unsqueeze(0)  # [1,1,H,W] (H,W here is layer spatial size)
-    cam = F.interpolate(cam, size=(orig_h, orig_w), mode="bilinear", align_corners=False)
-    cam = cam.squeeze().detach().cpu().numpy()  # [orig_h, orig_w]
-
-    fwd_handle.remove()
-    bwd_handle.remove()
+    # Use pytorch_grad_cam library
+    cam = GradCAM(model=model, target_layers=target_layers)
+    targets = [ClassifierOutputTarget(pred)]
+    
+    grayscale_cam = cam(input_tensor=x, targets=targets)
+    grayscale_cam = grayscale_cam[0, :]  # Get the CAM for the first (only) image
+    
+    # Resize CAM to original image size
+    orig_w, orig_h = img.size
+    cam_resized = np.array(Image.fromarray((grayscale_cam * 255).astype(np.uint8)).resize((orig_w, orig_h))) / 255.0
 
     top_probs = probs.detach().cpu().tolist()
     probs_by_class = {
@@ -100,8 +83,7 @@ def get_gradcam(image_path, target_class=None, top_k=5):
     probs_sorted = sorted(probs_by_class.items(), key=lambda x: x[1], reverse=True)
     probs_sorted = probs_sorted[:top_k]
 
-    return cam, img, pred_label, probs_sorted
-
+    return cam_resized, img, pred_label, probs_sorted
 
 
 def generate_cam_overlay(image_path, target_class=None, top_k=5):
