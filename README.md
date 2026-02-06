@@ -17,9 +17,9 @@ Want to use the classifier without setting up a development environment?
 5. A browser window will open with the classifier
 
 <details>
-<summary> Supported Characters (21 total)</summary>
+<summary> 🩵Supported Characters (21 total)</summary>
 
-| Character | Name |
+| Character |  |
 |-----------|------|
 | Alice | アリス・マーガトロイド |
 | Cirno | 琪露诺 |
@@ -45,7 +45,6 @@ Want to use the classifier without setting up a development environment?
 
 </details>
 
----
 
 ## Features
 
@@ -61,6 +60,8 @@ Want to use the classifier without setting up a development environment?
 ## Dataset
 
 - Sample dataset: <https://drive.google.com/drive/folders/1g0fvx9OwYUaohgFOwiKB1FCoqBD72DZA?usp=sharing>
+
+
 
 
 
