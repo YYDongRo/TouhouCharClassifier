@@ -19,29 +19,27 @@ Want to use the classifier without setting up a development environment?
 <details>
 <summary> 🩵Supported Characters (21 total)</summary>
 
-| Character |  |
-|-----------|------|
-| Alice | アリス・マーガトロイド |
-| Cirno | 琪露诺 |
-| Flandre | 芙兰朵露 |
-| Inubashiri | 犬走椛 |
-| Kaguya | 蓬莱山輝夜 |
-| Kochiya | 東風谷早苗 |
-| Koishi | 古明地恋 |
-| Kokoro | 秦こころ |
-| Konpaku | 魂魄妖夢 |
-| Marisa | 霧雨魔理沙 |
-| Meiling | 紅美鈴 |
-| Miku | 初音ミク |
-| Mokou | 藤原妹紅 |
-| Reimu | 博麗霊夢 |
-| Reisen | 鈴仙・優曇華院・イナバ |
-| Remilia | 蕾米莉亚 |
-| Sakuya | 十六夜咲夜 |
-| Satori | 古明地さとり |
-| Shameimaru | 射命丸文 |
-| Suika | 伊吹萃香 |
-| Yuyuko | 西行寺幽々子 |
+- Alice アリス・マーガトロイド
+- Cirno 琪露诺
+- Flandre 芙兰朵露
+- Inubashiri 犬走椛
+- Kaguya 蓬莱山輝夜
+- Kochiya 東風谷早苗
+- Koishi 古明地恋
+- Kokoro 秦こころ
+- Konpaku 魂魄妖夢
+- Marisa 霧雨魔理沙
+- Meiling 紅美鈴
+- Miku 初音ミク
+- Mokou 藤原妹紅
+- Reimu 博麗霊夢
+- Reisen 鈴仙・優曇華院・イナバ
+- Remilia 蕾米莉亚
+- Sakuya 十六夜咲夜
+- Satori 古明地さとり
+- Shameimaru 射命丸文
+- Suika 伊吹萃香
+- Yuyuko 西行寺幽々子
 
 </details>
 
