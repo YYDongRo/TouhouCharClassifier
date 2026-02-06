@@ -187,5 +187,9 @@ cython_debug/
 class_map.json
 model.pth
 
+# Release build
+release/
+release_build/
+
 # MacOS
 .DS_Store
