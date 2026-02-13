@@ -82,24 +82,22 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```bash
 git clone https://github.com/YYDongRo/TouhouCharClassifier.git
 ```
-### 3) Enter your Pixiv credentials in the .env file
-Fill in the blank as shown in the file:
+### 3) Enter your Pixiv credentials in the .env file 
+*Feel free to use other images source*
 
 ```bash
 PIXIV_USERNAME=""
 PIXIV_PASSWORD=""
 ```
 
-### 4) Run the program
+### 4) Run the program for inference
 
 ```bash
 uv run streamlit run app.py
 ```
 
 
-## Usage
-
-### Train your own model
+### 5) Train your own model
 
 Organize your images as one folder per class:
 
