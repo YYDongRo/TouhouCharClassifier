@@ -63,7 +63,7 @@ Want to use the classifier without setting up a development environment?
 
 
 
-## Installation
+## Installation (For who want to train the model)
 
 ### 1) Install uv
 
